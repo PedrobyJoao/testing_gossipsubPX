@@ -22,7 +22,12 @@ func DebugConnectedPeers() {
 		select {
 		case <-t.C:
 			log.Printf(
-				"Connected peers: %v",
+				"\nPeerStore: %v\n",
+				h.Peerstore().Peers(),
+			)
+
+			log.Printf(
+				"\nConnected peers: %v\n",
 				h.Network().Peers(),
 			)
 		}

@@ -77,26 +77,6 @@ func NewGossipPubSub(ctx context.Context, host host.Host, opts ...libp2pPS.Optio
 	return pubsubHost, err
 }
 
-func configurePSAsBootstrapNode(ctx context.Context, h host.Host) []libp2pPS.Option {
-	var opts []libp2pPS.Option
-
-	// Set up the bootstrap node configuration
-	// gossipSubParams := libp2pPS.GossipSubParams{
-	// 	D:      0,
-	// 	Dlo:    0,
-	// 	Dhi:    0,
-	// 	Dout:   0,
-	// 	Dscore: 100,
-	// }
-
-	// opts = append(opts, libp2pPS.WithGossipSubParams(gossipSubParams))
-
-	// Enable Peer Exchange for the bootstrap node
-	opts = append(opts, libp2pPS.WithPeerExchange(true))
-
-	return opts
-}
-
 // JoinSubscribeTopic joins the given topic and subscribes to the topic.
 func (ps *PubSub) JoinSubscribeTopic(ctx context.Context, topicName string,
 	msgHandler MsgHandler) (*PsTopicSubscription, error) {
