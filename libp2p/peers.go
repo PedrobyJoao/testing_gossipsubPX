@@ -26,6 +26,19 @@ func DebugConnectedPeers() {
 				h.Peerstore().Peers(),
 			)
 
+			// cab, ok := peerstore.GetCertifiedAddrBook(h.Peerstore())
+			// if !ok {
+			// 	zlog.Sugar().Error("peerstore does not implement CertifiedAddrBook")
+			// }
+			// for _, p := range h.Peerstore().Peers() {
+			// 	rec := cab.GetPeerRecord(p)
+			// 	if rec == nil {
+			// 		zlog.Sugar().Errorf("Peer %s has NO signed peer record", p)
+			// 	} else {
+			// 		zlog.Sugar().Debugf("Peer %s HAS signed peer record", p)
+			// 	}
+			// }
+
 			log.Printf(
 				"\nConnected peers: %v\n",
 				h.Network().Peers(),

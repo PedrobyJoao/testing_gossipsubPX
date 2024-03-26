@@ -48,7 +48,7 @@ func main() {
 		log.Println("Selected to connect to bootstrap nodes...")
 		bootstrapPeers = []string{
 			// Change it for your own bootstrap node
-			fmt.Sprintf("/ip4/%s/tcp/8080/p2p/QmeVAGhgsnW2rt34LKsKhwDMrm3baq92RRvwSmsFPEwTSs", serverIP),
+			fmt.Sprintf("/ip4/%s/tcp/8080/p2p/QmTgGSGFksvZgCkKu4sy621Qs9RpwnPdXFN9ZwB8ocViyF", serverIP),
 			// fmt.Sprintf("/ip4/%s/tcp/7778/p2p/QmeHeb8SoTCXRbfeC1LZ1bB1VHSxRJSpJc5KuwnkuDr4Lv", serverIP2),
 		}
 	}

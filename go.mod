@@ -4,11 +4,13 @@ go 1.22.0
 
 require (
 	github.com/gorilla/mux v1.8.0
+	github.com/ipfs/go-log/v2 v2.5.1
 	github.com/joho/godotenv v1.5.1
 	github.com/libp2p/go-libp2p v0.33.0
 	github.com/libp2p/go-libp2p-pubsub v0.10.0
 	github.com/multiformats/go-multiaddr v0.12.2
 	github.com/prometheus/client_golang v1.19.0
+	github.com/whyrusleeping/multiaddr-filter v0.0.0-20160516205228-e903e4adabd7
 	go.uber.org/zap v1.27.0
 	gorm.io/driver/sqlite v1.5.5
 	gorm.io/gorm v1.25.8
@@ -35,7 +37,6 @@ require (
 	github.com/hashicorp/golang-lru/v2 v2.0.5 // indirect
 	github.com/huin/goupnp v1.3.0 // indirect
 	github.com/ipfs/go-cid v0.4.1 // indirect
-	github.com/ipfs/go-log/v2 v2.5.1 // indirect
 	github.com/jackpal/go-nat-pmp v1.0.2 // indirect
 	github.com/jbenet/go-temp-err-catcher v0.1.0 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
@@ -95,3 +96,5 @@ require (
 	google.golang.org/protobuf v1.33.0 // indirect
 	lukechampine.com/blake3 v1.2.1 // indirect
 )
+
+replace github.com/libp2p/go-libp2p => github.com/PedrobyJoao/go-libp2p v0.33.1-0.20240326154140-4e938ef39e8c

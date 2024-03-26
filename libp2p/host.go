@@ -16,12 +16,11 @@ import (
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
-	"github.com/libp2p/go-libp2p/core/peerstore"
-	"github.com/libp2p/go-libp2p/core/record"
-	"github.com/libp2p/go-libp2p/p2p/host/autorelay"
-	"github.com/libp2p/go-libp2p/p2p/protocol/circuitv2/relay"
+	// "github.com/libp2p/go-libp2p/p2p/host/autorelay"
+	// "github.com/libp2p/go-libp2p/p2p/protocol/circuitv2/relay"
 	"github.com/libp2p/go-libp2p/p2p/protocol/identify"
 	"github.com/multiformats/go-multiaddr"
+	mafilt "github.com/whyrusleeping/multiaddr-filter"
 )
 
 var (
@@ -54,71 +53,75 @@ func NewHost(port int, bootstrapPeers []string, cp bool) (host.Host, error) {
 		}
 	}
 
+	filter := multiaddr.NewFilters()
+	for _, s := range defaultServerFilters {
+		f, err := mafilt.NewMask(s)
+		if err != nil {
+			zlog.Sugar().Errorf("incorrectly formatted address filter in config: %s - %v", s, err)
+		}
+		filter.AddFilter(*f, multiaddr.ActionDeny)
+	}
+
 	h, err = libp2p.New(
 		libp2p.ListenAddrStrings(
 			fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", port),
 			fmt.Sprintf("/ip4/0.0.0.0/udp/%d/quic", port),
 		),
 		libp2p.Identity(prvKey),
-		libp2p.EnableNATService(),
-		libp2p.DefaultTransports,
-		libp2p.EnableNATService(),
-		libp2p.EnableRelay(),
-		libp2p.EnableHolePunching(),
-		libp2p.EnableRelayService(
-			relay.WithResources(
-				relay.Resources{
-					MaxReservations:        256,
-					MaxCircuits:            32,
-					BufferSize:             4096,
-					MaxReservationsPerPeer: 8,
-					MaxReservationsPerIP:   16,
-				},
-			),
-			relay.WithLimit(&relay.RelayLimit{
-				Duration: 5 * time.Minute,
-				Data:     1 << 21, // 2 MiB
-			}),
-		),
-		libp2p.EnableAutoRelayWithPeerSource(
-			func(ctx context.Context, num int) <-chan peer.AddrInfo {
-				r := make(chan peer.AddrInfo)
-				go func() {
-					defer close(r)
-					for i := 0; i < num; i++ {
-						select {
-						case p := <-newPeer:
-							select {
-							case r <- p:
-							case <-ctx.Done():
-								return
-							}
-						case <-ctx.Done():
-							return
-						}
-					}
-				}()
-				return r
-			},
-			autorelay.WithBootDelay(time.Minute),
-			autorelay.WithBackoff(30*time.Second),
-			autorelay.WithMinCandidates(2),
-			autorelay.WithMaxCandidates(3),
-			autorelay.WithNumRelays(2),
-		),
+		// libp2p.ProtocolVersion(identify.IDPush),
+		libp2p.AddrsFactory(makeAddrsFactory([]string{}, []string{}, defaultServerFilters)),
+		libp2p.ConnectionGater((*filtersConnectionGater)(filter)),
+		// libp2p.EnableNATService(),
+		// libp2p.DefaultTransports,
+		// libp2p.EnableNATService(),
+		// libp2p.EnableRelay(),
+		// libp2p.EnableHolePunching(),
+		// libp2p.EnableRelayService(
+		// 	relay.WithResources(
+		// 		relay.Resources{
+		// 			MaxReservations:        256,
+		// 			MaxCircuits:            32,
+		// 			BufferSize:             4096,
+		// 			MaxReservationsPerPeer: 8,
+		// 			MaxReservationsPerIP:   16,
+		// 		},
+		// 	),
+		// 	relay.WithLimit(&relay.RelayLimit{
+		// 		Duration: 5 * time.Minute,
+		// 		Data:     1 << 21, // 2 MiB
+		// 	}),
+		// ),
+		// libp2p.EnableAutoRelayWithPeerSource(
+		// 	func(ctx context.Context, num int) <-chan peer.AddrInfo {
+		// 		r := make(chan peer.AddrInfo)
+		// 		go func() {
+		// 			defer close(r)
+		// 			for i := 0; i < num; i++ {
+		// 				select {
+		// 				case p := <-newPeer:
+		// 					select {
+		// 					case r <- p:
+		// 					case <-ctx.Done():
+		// 						return
+		// 					}
+		// 				case <-ctx.Done():
+		// 					return
+		// 				}
+		// 			}
+		// 		}()
+		// 		return r
+		// 	},
+		// 	autorelay.WithBootDelay(time.Minute),
+		// 	autorelay.WithBackoff(30*time.Second),
+		// 	autorelay.WithMinCandidates(2),
+		// 	autorelay.WithMaxCandidates(3),
+		// 	autorelay.WithNumRelays(2),
+		// ),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create new p2p host: %v", err)
 	}
 
-	err = addSignedRecord(h)
-	if err != nil {
-		return nil, fmt.Errorf("failed to add signed record: %v", err)
-	}
-
-	// Monkey patch the identify protocol to allow discovering advertised addresses of networks of 3 or more nodes, instead of 5.
-	// Setting the value to 2 means two other nodes must see the same addr for a node to discover its observed addr, which enables a network
-	// of at least 3 nodes.
 	identify.ActivationThresh = 2
 
 	gsOpts := configureGossipSubOpts(len(bootstrapPeers) == 0)
@@ -257,6 +260,7 @@ func configureGossipSubOpts(isBootstrap bool) []libp2pPS.Option {
 		params.Dhi = 0
 		params.Dlo = 0
 		params.Dout = 0
+		// params.Dscore = 0
 	}
 
 	opts := []libp2pPS.Option{
@@ -268,51 +272,65 @@ func configureGossipSubOpts(isBootstrap bool) []libp2pPS.Option {
 	return opts
 }
 
-func addSignedRecord(h host.Host) error {
-	ttl := time.Hour * 24
+func makeAddrsFactory(announce []string, appendAnnouce []string, noAnnounce []string) func([]multiaddr.Multiaddr) []multiaddr.Multiaddr {
+	var err error                     // To assign to the slice in the for loop
+	existing := make(map[string]bool) // To avoid duplicates
 
-	// Create a new PeerRecord
-	rec := peer.NewPeerRecord()
-	rec.PeerID = h.ID()
-	rec.Addrs = h.Addrs()
-
-	// Sign the PeerRecord using the peer's private key
-	envelope, err := record.Seal(rec, h.Peerstore().PrivKey(h.ID()))
-	if err != nil {
-		return fmt.Errorf("failed to sign peer record: %v", err)
+	annAddrs := make([]multiaddr.Multiaddr, len(announce))
+	for i, addr := range announce {
+		annAddrs[i], err = multiaddr.NewMultiaddr(addr)
+		if err != nil {
+			return nil
+		}
+		existing[addr] = true
 	}
 
-	// Marshal the signed Envelope
-	signedRecordBytes, err := envelope.Marshal()
-	if err != nil {
-		return fmt.Errorf("failed to marshal signed record: %v", err)
+	var appendAnnAddrs []multiaddr.Multiaddr
+	for _, addr := range appendAnnouce {
+		if existing[addr] {
+			// skip AppendAnnounce that is on the Announce list already
+			continue
+		}
+		appendAddr, err := multiaddr.NewMultiaddr(addr)
+		if err != nil {
+			return nil
+		}
+		appendAnnAddrs = append(appendAnnAddrs, appendAddr)
 	}
 
-	// Consume the signed Envelope and extract the PeerRecord
-	envelope, _, err = record.ConsumeEnvelope(signedRecordBytes, peer.PeerRecordEnvelopeDomain)
-	if err != nil {
-		return fmt.Errorf("failed to consume signed record: %v", err)
+	filters := multiaddr.NewFilters()
+	noAnnAddrs := map[string]bool{}
+	for _, addr := range noAnnounce {
+		f, err := mafilt.NewMask(addr)
+		if err == nil {
+			filters.AddFilter(*f, multiaddr.ActionDeny)
+			continue
+		}
+		maddr, err := multiaddr.NewMultiaddr(addr)
+		if err != nil {
+			return nil
+		}
+		noAnnAddrs[string(maddr.Bytes())] = true
 	}
 
-	// peerRec := untypedRecord.(*peer.PeerRecord)
+	return func(allAddrs []multiaddr.Multiaddr) []multiaddr.Multiaddr {
+		var addrs []multiaddr.Multiaddr
+		if len(annAddrs) > 0 {
+			addrs = annAddrs
+		} else {
+			addrs = allAddrs
+		}
+		addrs = append(addrs, appendAnnAddrs...)
 
-	certifiedAddrBook, ok := peerstore.GetCertifiedAddrBook(h.Peerstore())
-	if !ok {
-		return fmt.Errorf("failed to get certified address book")
+		var out []multiaddr.Multiaddr
+		for _, maddr := range addrs {
+			// check for exact matches
+			ok := noAnnAddrs[string(maddr.Bytes())]
+			// check for /ipcidr matches
+			if !ok && !filters.AddrBlocked(maddr) {
+				out = append(out, maddr)
+			}
+		}
+		return out
 	}
-
-	// Add the certified addresses from the PeerRecord to the CertifiedAddrBook
-	accepted, err := certifiedAddrBook.ConsumePeerRecord(envelope, ttl)
-	if err != nil {
-		return fmt.Errorf("failed to consume peer record: %v", err)
-	}
-
-	if accepted {
-		zlog.Sugar().Debugf("Peer record accepted")
-	} else {
-		zlog.Sugar().Error("Peer record rejected")
-	}
-
-	zlog.Sugar().Debugf("Peer record: %v", certifiedAddrBook.GetPeerRecord(h.ID()))
-	return nil
 }
